@@ -19,7 +19,7 @@ import {
   TrendingUp,
   LogOut,
   Eye,
-  Broadcast,
+  Radio,
   Target,
   Activity
 } from 'lucide-react';
@@ -215,7 +215,7 @@ export default function AdminDashboard() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Broadcast size={20} />
+                <Radio size={20} />
                 Broadcast Stats
               </CardTitle>
             </CardHeader>

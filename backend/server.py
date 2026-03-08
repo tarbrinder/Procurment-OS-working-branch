@@ -34,21 +34,21 @@ logger = logging.getLogger("uvicorn")
 
 PROBABILITY_MAP = {
     "RFQ_SENT": 40, "SELLER_VERIFIED": 50, "QUOTE_RECEIVED": 60, "NEGOTIATION": 75, "MEETING_SCHEDULED": 85,
-    "DEAL_WON": 100, "PROFORMA_SENT": 100, "PROFORMA_ACCEPTED": 100,
+    "DEAL_WON": 100, "PO_GENERATED": 100, "PROFORMA_SENT": 100, "PROFORMA_ACCEPTED": 100,
     "PAYMENT_PENDING": 100, "PAYMENT_PARTIAL": 100, "PAYMENT_RECEIVED": 100,
     "DISPATCHED": 100, "IN_TRANSIT": 100, "DELIVERED": 100,
     "REVIEW_SUBMITTED": 100, "CLOSED": 100, "DEAL_LOST": 0,
 }
 
 FULFILLMENT_PROGRESS = {
-    "DEAL_WON": 10, "PROFORMA_SENT": 20, "PROFORMA_ACCEPTED": 30,
+    "DEAL_WON": 5, "PO_GENERATED": 10, "PROFORMA_SENT": 20, "PROFORMA_ACCEPTED": 30,
     "PAYMENT_PENDING": 40, "PAYMENT_PARTIAL": 50, "PAYMENT_RECEIVED": 60,
     "DISPATCHED": 70, "IN_TRANSIT": 80, "DELIVERED": 90,
     "REVIEW_SUBMITTED": 95, "CLOSED": 100,
 }
 
 POST_DEAL_STAGES = [
-    "DEAL_WON", "PROFORMA_SENT", "PROFORMA_ACCEPTED", "PAYMENT_PENDING",
+    "DEAL_WON", "PO_GENERATED", "PROFORMA_SENT", "PROFORMA_ACCEPTED", "PAYMENT_PENDING",
     "PAYMENT_PARTIAL", "PAYMENT_RECEIVED", "DISPATCHED", "IN_TRANSIT",
     "DELIVERED", "REVIEW_SUBMITTED", "CLOSED",
 ]
@@ -537,6 +537,10 @@ async def perform_rfq_action(rfq_id: str, req: RFQActionRequest):
         new_stage = "MEETING_SCHEDULED"
         message_type = "system"
         action_detail = f"Meeting scheduled: {req.metadata.get('date', 'TBD')}"
+    elif req.action == "generate_po":
+        new_stage = "PO_GENERATED"
+        message_type = "system"
+        action_detail = f"Purchase Order generated. PO Number: {req.metadata.get('po_number', 'PO-' + rfq_id[:8].upper())}"
     elif req.action == "close_deal_won":
         new_stage = "DEAL_WON"
         message_type = "system"
@@ -1915,7 +1919,7 @@ async def list_rfq_files(rfq_id: str):
     return {"files": files}
 
 
-VALID_PROFORMA_STAGES = {"DEAL_WON", "PROFORMA_SENT", "PROFORMA_ACCEPTED", "NEGOTIATION"}
+VALID_PROFORMA_STAGES = {"DEAL_WON", "PO_GENERATED", "PROFORMA_SENT", "PROFORMA_ACCEPTED", "NEGOTIATION"}
 VALID_PAYMENT_STAGES = {"PAYMENT_PENDING", "PAYMENT_PARTIAL", "PROFORMA_ACCEPTED"}
 VALID_SHIPMENT_STAGES = {"PAYMENT_RECEIVED", "DISPATCHED", "PAYMENT_PARTIAL"}
 VALID_DELIVERY_STAGES = {"IN_TRANSIT", "DISPATCHED", "DELIVERED"}

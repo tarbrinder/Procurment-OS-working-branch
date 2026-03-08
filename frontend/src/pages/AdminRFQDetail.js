@@ -25,6 +25,7 @@ export default function AdminRFQDetail() {
       return;
     }
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rfqId]);
 
   const loadData = async () => {

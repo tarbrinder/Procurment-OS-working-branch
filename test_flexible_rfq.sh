@@ -432,27 +432,28 @@ fi
 echo ""
 
 echo "5.5: Test Bulk with 500+ Threads (Should Fail)"
-# Create JSON with 100 RFQs × 6 sellers = 600 threads
+# Create 100 RFQs with 6 sellers each = 600 threads
 echo "Attempting to create 600 threads (should be rejected)..."
+
+# Build the bulk request JSON programmatically
+BULK_PAYLOAD=$(python3 -c "
+import json
+rfqs = []
+for i in range(100):
+    rfqs.append({
+        'rfq_data': {'category': f'Test-{i}', 'quantity': 1},
+        'seller_external_ids': ['seller-kirloskar-mumbai', 'seller-kirloskar-pune', 'seller-generic-power', 'seller-tata-solar', 'seller-adani-solar', 'seller-kirloskar-mumbai'],
+        'priority': 'low'
+    })
+print(json.dumps({
+    'buyer_external_id': 'buyer-abc-manufacturing',
+    'rfqs': rfqs
+}))
+")
+
 EDGE5_RESPONSE=$(curl -s -X POST "$BASE_URL/integration/create-rfqs-bulk" \
   -H "Content-Type: application/json" \
-  -d '{
-    "buyer_external_id": "buyer-abc-manufacturing",
-    "rfqs": [
-      {
-        "rfq_data": {"category": "Test"},
-        "seller_external_ids": ["seller-kirloskar-mumbai", "seller-kirloskar-pune", "seller-generic-power", "seller-tata-solar", "seller-adani-solar", "seller-kirloskar-mumbai"],
-        "priority": "low"
-      }
-    ]
-  }' | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-data['rfqs'] = data['rfqs'] * 100
-print(json.dumps(data))
-" | curl -s -X POST "$BASE_URL/integration/create-rfqs-bulk" \
-  -H "Content-Type: application/json" \
-  -d @-)
+  -d "$BULK_PAYLOAD")
 
 if echo "$EDGE5_RESPONSE" | grep -q "Too many threads"; then
     echo -e "${GREEN}✓ PASSED: Large bulk request rejected${NC}"

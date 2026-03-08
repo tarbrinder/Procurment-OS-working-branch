@@ -6,6 +6,7 @@ import { StageBadge } from "@/components/StageBadge";
 import { ProbabilityIndicator } from "@/components/ProbabilityIndicator";
 import { MessageThread } from "@/components/MessageThread";
 import { DynamicRFQDetails, BroadcastBadge, getRFQTitle } from "@/components/DynamicRFQ";
+import { HintBanner } from "@/components/HintBanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fetchRfq, fetchMessages, fetchActivity, performAction, initiateCall, endCall, getActiveCalls, verifySeller, listRfqFiles } from "@/lib/api";
@@ -357,6 +358,9 @@ export default function RFQWorkspace() {
                 )}
               </div>
             </div>
+
+            {/* Hint Banner - Shows contextual guidance */}
+            <HintBanner rfq={rfq} userRole={view} />
 
             {/* Video KYC Verification Hint */}
             {!rfq.seller_verified?.verified && !isPostDeal && !isPreDealClosed && view === "buyer" && (

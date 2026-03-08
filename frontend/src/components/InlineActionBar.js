@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { acceptProforma, rejectProforma, recordPayment, confirmPayment, addShipment, recordDelivery } from "@/lib/api";
+import { performAction, acceptProforma, rejectProforma, recordPayment, confirmPayment, addShipment, recordDelivery } from "@/lib/api";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, CreditCard, Truck, PackageCheck, FileText } from "lucide-react";
 
@@ -12,7 +12,17 @@ export const InlineActionBar = ({ rfq, rfqId, view, glid, onRefresh }) => {
 
   const handleSubmit = async (action) => {
     try {
-      if (action === "accept_proforma") {
+      if (action === "generate_po") {
+        const poNumber = `PO-${rfqId.substring(0, 8).toUpperCase()}-${Date.now().toString().slice(-6)}`;
+        await performAction(rfqId, {
+          action: "generate_po",
+          actor_glid: glid,
+          actor_type: view,
+          content: `Purchase Order Generated: ${poNumber}`,
+          metadata: { po_number: poNumber },
+        });
+        toast.success(`Purchase Order ${poNumber} generated successfully`);
+      } else if (action === "accept_proforma") {
         await acceptProforma(rfqId);
         toast.success("Proforma accepted");
       } else if (action === "reject_proforma") {
@@ -55,7 +65,11 @@ export const InlineActionBar = ({ rfq, rfqId, view, glid, onRefresh }) => {
 
   // Determine what inline actions to show based on stage + view
   let actions = [];
-  if (stage === "PROFORMA_SENT" && view === "buyer") {
+  if (stage === "DEAL_WON" && view === "buyer") {
+    actions = [
+      { key: "generate_po", label: "Generate Purchase Order", icon: FileText, variant: "success", quick: true },
+    ];
+  } else if (stage === "PROFORMA_SENT" && view === "buyer") {
     actions = [
       { key: "accept_proforma", label: "Accept Proforma", icon: CheckCircle2, variant: "success", quick: true },
       { key: "reject_proforma", label: "Reject", icon: XCircle, variant: "destructive", quick: true },

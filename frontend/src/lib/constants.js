@@ -1,6 +1,6 @@
 export const STAGES = [
   "RFQ_SENT", "SELLER_VERIFIED", "QUOTE_RECEIVED", "NEGOTIATION", "MEETING_SCHEDULED",
-  "DEAL_WON", "PROFORMA_SENT", "PROFORMA_ACCEPTED",
+  "DEAL_WON", "PO_GENERATED", "PROFORMA_SENT", "PROFORMA_ACCEPTED",
   "PAYMENT_PENDING", "PAYMENT_PARTIAL", "PAYMENT_RECEIVED",
   "DISPATCHED", "IN_TRANSIT", "DELIVERED",
   "REVIEW_SUBMITTED", "CLOSED", "DEAL_LOST",
@@ -9,14 +9,14 @@ export const STAGES = [
 export const PRE_DEAL_STAGES = ["RFQ_SENT", "SELLER_VERIFIED", "QUOTE_RECEIVED", "NEGOTIATION", "MEETING_SCHEDULED", "DEAL_WON", "DEAL_LOST"];
 
 export const POST_DEAL_STAGES = [
-  "DEAL_WON", "PROFORMA_SENT", "PROFORMA_ACCEPTED",
+  "DEAL_WON", "PO_GENERATED", "PROFORMA_SENT", "PROFORMA_ACCEPTED",
   "PAYMENT_PENDING", "PAYMENT_PARTIAL", "PAYMENT_RECEIVED",
   "DISPATCHED", "IN_TRANSIT", "DELIVERED", "REVIEW_SUBMITTED", "CLOSED",
 ];
 
 export const STAGE_LABELS = {
   RFQ_SENT: "RFQ Sent", SELLER_VERIFIED: "Seller Verified", QUOTE_RECEIVED: "Quote Received", NEGOTIATION: "Negotiation",
-  MEETING_SCHEDULED: "Meeting Scheduled", DEAL_WON: "Deal Won",
+  MEETING_SCHEDULED: "Meeting Scheduled", DEAL_WON: "Deal Won", PO_GENERATED: "PO Generated",
   PROFORMA_SENT: "Proforma Sent", PROFORMA_ACCEPTED: "Proforma Accepted",
   PAYMENT_PENDING: "Payment Pending", PAYMENT_PARTIAL: "Payment Partial",
   PAYMENT_RECEIVED: "Payment Received", DISPATCHED: "Dispatched",
@@ -31,6 +31,7 @@ export const STAGE_COLORS = {
   NEGOTIATION: { bg: "#fffbeb", text: "#b45309", border: "#fde68a" },
   MEETING_SCHEDULED: { bg: "#eff6ff", text: "#1d4ed8", border: "#dbeafe" },
   DEAL_WON: { bg: "#ecfdf5", text: "#047857", border: "#d1fae5" },
+  PO_GENERATED: { bg: "#dbeafe", text: "#1e40af", border: "#bfdbfe" },
   PROFORMA_SENT: { bg: "#faf5ff", text: "#7c3aed", border: "#e9d5ff" },
   PROFORMA_ACCEPTED: { bg: "#ecfdf5", text: "#047857", border: "#d1fae5" },
   PAYMENT_PENDING: { bg: "#fffbeb", text: "#b45309", border: "#fde68a" },
@@ -56,7 +57,7 @@ export const PROBABILITY_MAP = {
 };
 
 export const FULFILLMENT_PROGRESS = {
-  DEAL_WON: 10, PROFORMA_SENT: 20, PROFORMA_ACCEPTED: 30,
+  DEAL_WON: 5, PO_GENERATED: 10, PROFORMA_SENT: 20, PROFORMA_ACCEPTED: 30,
   PAYMENT_PENDING: 40, PAYMENT_PARTIAL: 50, PAYMENT_RECEIVED: 60,
   DISPATCHED: 70, IN_TRANSIT: 80, DELIVERED: 90,
   REVIEW_SUBMITTED: 95, CLOSED: 100,
