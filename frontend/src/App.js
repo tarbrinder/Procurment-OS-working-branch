@@ -1,53 +1,78 @@
-import { useEffect } from "react";
+import { useState, useEffect, createContext, useContext, useCallback } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import { Toaster } from "@/components/ui/sonner";
+import LandingPage from "@/pages/LandingPage";
+import BuyerDashboard from "@/pages/BuyerDashboard";
+import SellerDashboard from "@/pages/SellerDashboard";
+import RFQWorkspace from "@/pages/RFQWorkspace";
+import IntegrationConsole from "@/pages/IntegrationConsole";
+import EmbedPage from "@/pages/EmbedPage";
+import { fetchGlids, fetchGlidInfo } from "@/lib/api";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+export const AppContext = createContext(null);
+export const useAppContext = () => useContext(AppContext);
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
+function AppProvider({ children }) {
+  const [view, setView] = useState(null);
+  const [glid, setGlid] = useState(null);
+  const [glidInfo, setGlidInfo] = useState(null);
+  const [allGlids, setAllGlids] = useState([]);
 
   useEffect(() => {
-    helloWorldApi();
+    const params = new URLSearchParams(window.location.search);
+    const urlView = params.get("view");
+    const urlGlid = params.get("glid");
+    if (urlView && urlGlid) {
+      setView(urlView);
+      setGlid(urlGlid);
+    }
+    fetchGlids()
+      .then((res) => setAllGlids(res.data.glids))
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (glid) {
+      fetchGlidInfo(glid)
+        .then((res) => setGlidInfo(res.data))
+        .catch(console.error);
+    } else {
+      setGlidInfo(null);
+    }
+  }, [glid]);
+
+  const switchView = useCallback(() => {
+    setView((v) => (v === "buyer" ? "seller" : "buyer"));
+    setGlid(null);
+    setGlidInfo(null);
   }, []);
 
   return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
+    <AppContext.Provider
+      value={{ view, setView, glid, setGlid, glidInfo, allGlids, switchView }}
+    >
+      {children}
+      <Toaster position="top-right" richColors />
+    </AppContext.Provider>
   );
-};
+}
 
 function App() {
   return (
-    <div className="App">
-      <BrowserRouter>
+    <BrowserRouter>
+      <AppProvider>
         <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/buyer" element={<BuyerDashboard />} />
+          <Route path="/seller" element={<SellerDashboard />} />
+          <Route path="/rfq/:rfqId" element={<RFQWorkspace />} />
+          <Route path="/integration" element={<IntegrationConsole />} />
+          <Route path="/embed" element={<EmbedPage />} />
+          <Route path="/embed/rfq/:rfqId" element={<EmbedPage />} />
         </Routes>
-      </BrowserRouter>
-    </div>
+      </AppProvider>
+    </BrowserRouter>
   );
 }
 

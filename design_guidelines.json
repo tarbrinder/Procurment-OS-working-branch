@@ -1,0 +1,184 @@
+{
+  "identity": {
+    "name": "E1: The Anti-AI Designer",
+    "mission": "Create a high-density, professional procurement dashboard that feels authoritative and crisp. Avoid 'SaaS Blue' defaults where possible, leaning into a 'Slate & Steel' aesthetic for enterprise trust.",
+    "principles": [
+      "Density with Breathability: High information density for tables, but generous padding around containers.",
+      "Color as Status: Color is reserved for data status (Won, Lost, Pending) and primary actions. Everything else is grayscale.",
+      "Sharp over Soft: Use lower border-radius (md or sm) for a more technical, precise feel.",
+      "No Clutter: If it doesn't aid the decision process, delete it."
+    ]
+  },
+  "typography": {
+    "fonts": {
+      "heading": {
+        "family": "Manrope, sans-serif",
+        "url": "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap",
+        "weights": ["600", "700", "800"],
+        "usage": "Headings, KPI Values, Modal Titles"
+      },
+      "body": {
+        "family": "Public Sans, sans-serif",
+        "url": "https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600&display=swap",
+        "weights": ["400", "500"],
+        "usage": "Table data, labels, body text, form inputs"
+      }
+    },
+    "scale": {
+      "h1": "text-3xl font-bold tracking-tight text-slate-900",
+      "h2": "text-2xl font-bold tracking-tight text-slate-900",
+      "h3": "text-xl font-semibold tracking-tight text-slate-900",
+      "body": "text-sm text-slate-600 leading-relaxed",
+      "small": "text-xs text-slate-500 font-medium",
+      "label": "text-xs font-semibold uppercase tracking-wider text-slate-500"
+    }
+  },
+  "colors": {
+    "theme": "light",
+    "palette": {
+      "primary": {
+        "DEFAULT": "#0f172a", 
+        "foreground": "#ffffff",
+        "description": "Deep Slate (Slate-900). Used for primary buttons, active states, and brand headers."
+      },
+      "secondary": {
+        "DEFAULT": "#f1f5f9",
+        "foreground": "#0f172a",
+        "description": "Slate-100. Used for secondary buttons, backgrounds."
+      },
+      "background": {
+        "DEFAULT": "#f8fafc",
+        "paper": "#ffffff",
+        "subtle": "#f1f5f9"
+      },
+      "border": "#e2e8f0",
+      "status": {
+        "success": { "bg": "#ecfdf5", "text": "#047857", "border": "#d1fae5" }, 
+        "warning": { "bg": "#fffbeb", "text": "#b45309", "border": "#fde68a" },
+        "danger": { "bg": "#fef2f2", "text": "#b91c1c", "border": "#fecaca" },
+        "info": { "bg": "#eff6ff", "text": "#1d4ed8", "border": "#dbeafe" },
+        "neutral": { "bg": "#f3f4f6", "text": "#4b5563", "border": "#e5e7eb" }
+      }
+    },
+    "mappings": {
+      "RFQ_SENT": "info",
+      "QUOTE_RECEIVED": "warning",
+      "NEGOTIATION": "warning",
+      "MEETING_SCHEDULED": "info",
+      "DEAL_WON": "success",
+      "DEAL_LOST": "danger",
+      "HIGH_PRIORITY": "danger",
+      "MEDIUM_PRIORITY": "warning",
+      "LOW_PRIORITY": "neutral"
+    }
+  },
+  "layout": {
+    "spacing_scale": {
+      "container_padding": "p-8",
+      "section_gap": "gap-8",
+      "item_gap": "gap-4"
+    },
+    "grid_strategy": "Bento Grid Mode B (High Density)",
+    "container": "max-w-7xl mx-auto w-full",
+    "radius": "rounded-md"
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-slate-900 hover:bg-slate-800 text-white shadow-sm font-medium transition-all active:scale-95",
+      "secondary": "bg-white border border-slate-200 hover:bg-slate-50 text-slate-900 shadow-sm font-medium transition-all active:scale-95",
+      "ghost": "hover:bg-slate-100 text-slate-600 hover:text-slate-900",
+      "destructive": "bg-red-600 hover:bg-red-700 text-white shadow-sm"
+    },
+    "cards": {
+      "default": "bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden",
+      "hoverable": "hover:shadow-md transition-shadow duration-200"
+    },
+    "tables": {
+      "wrapper": "rounded-md border border-slate-200 overflow-hidden bg-white",
+      "header": "bg-slate-50 border-b border-slate-200 text-slate-500 font-medium text-xs uppercase tracking-wider",
+      "row": "hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-0",
+      "cell": "py-3 px-4 text-sm text-slate-700"
+    },
+    "badges": {
+      "base": "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border"
+    },
+    "inputs": {
+      "base": "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-shadow"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": "Use shadow-sm for all cards. Use shadow-lg for dropdowns and modals.",
+    "borders": "1px solid slate-200. No thick borders.",
+    "glass": "Use backdrop-blur-md bg-white/80 sticky top-0 z-50 for the navbar."
+  },
+  "icons": {
+    "library": "lucide-react",
+    "usage_instructions": "Import icons from lucide-react. e.g. import { LayoutDashboard, Users, FileText } from 'lucide-react'. Use size={16} for buttons, size={18} for nav, size={24} for KPIs.",
+    "mappings": {
+      "buyer_dashboard": "LayoutDashboard",
+      "seller_dashboard": "Store",
+      "rfq": "FileText",
+      "chat": "MessageSquare",
+      "settings": "Settings",
+      "user": "User",
+      "logout": "LogOut",
+      "search": "Search",
+      "filter": "Filter",
+      "plus": "Plus",
+      "check": "CheckCircle2",
+      "x": "XCircle",
+      "clock": "Clock",
+      "calendar": "Calendar"
+    }
+  },
+  "motion": {
+    "instructions": "Use framer-motion for page transitions and list staggered entries.",
+    "variants": {
+      "fadeIn": {
+        "initial": { "opacity": 0, "y": 10 },
+        "animate": { "opacity": 1, "y": 0 },
+        "exit": { "opacity": 0, "y": -10 },
+        "transition": { "duration": 0.2 }
+      }
+    }
+  },
+  "charts": {
+    "library": "recharts",
+    "palette": ["#0f172a", "#3b82f6", "#10b981", "#f59e0b", "#ef4444"],
+    "instructions": "Use Recharts ResponsiveContainer for all charts. Keep them simple and clean. No grid lines unless necessary."
+  },
+  "image_urls": {},
+  "instructions_to_main_agent": [
+    "1. INSTALL FONTS: Add the Google Fonts links to the public/index.html or import in CSS.",
+    "2. SETUP TAILWIND: Ensure tailwind.config.js extends the colors as specified.",
+    "3. COMPONENT OVERRIDES: When using Shadcn components, override the default heavy rounded corners. Use 'rounded-md' or 'rounded-sm'.",
+    "4. POLLING: Implement the 2-second polling using a simple `useEffect` interval or `useQuery` with refetchInterval.",
+    "5. DATA-TESTID: Add data-testid to all interactive elements (buttons, inputs, rows).",
+    "6. IFRAME: Check for `window.location.search` parameters 'view' and 'glid' on mount to set initial state.",
+    "7. NO AUTH: Hardcode a simple UserContext that switches based on the 'Enter as Buyer'/'Enter as Seller' selection.",
+    "8. GLID: Mock the GLID selection as a dropdown. It's just a filter ID.",
+    "9. STAGE FLOW: Ensure the RFQ Lifecycle logic is robust (Buyer sends -> Seller sees -> Seller quotes -> Buyer sees quote).",
+    "10. USE LUCIDE ICONS: Do not use Emojis.",
+    "11. NO GRADIENTS: Use solid colors and subtle borders."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: transition: all. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Create new components that match the style and conventions of existing components when needed",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use sonner for toasts"
+  ]
+}
