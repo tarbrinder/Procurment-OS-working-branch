@@ -24,7 +24,7 @@ export default function LandingPage() {
       setGlid(urlGlid);
       navigate(`/${urlView}`);
     }
-  }, []);
+  }, [navigate, setView, setGlid]);
 
   const buyers = allGlids.filter((g) => g.type === "buyer");
   const sellers = allGlids.filter((g) => g.type === "seller");

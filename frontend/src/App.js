@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext, useCallback } from "rea
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import LandingPage from "@/pages/LandingPage";
 import BuyerDashboard from "@/pages/BuyerDashboard";
 import SellerDashboard from "@/pages/SellerDashboard";
@@ -60,19 +61,21 @@ function AppProvider({ children }) {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppProvider>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/buyer" element={<BuyerDashboard />} />
-          <Route path="/seller" element={<SellerDashboard />} />
-          <Route path="/rfq/:rfqId" element={<RFQWorkspace />} />
-          <Route path="/integration" element={<IntegrationConsole />} />
-          <Route path="/embed" element={<EmbedPage />} />
-          <Route path="/embed/rfq/:rfqId" element={<EmbedPage />} />
-        </Routes>
-      </AppProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AppProvider>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/buyer" element={<BuyerDashboard />} />
+            <Route path="/seller" element={<SellerDashboard />} />
+            <Route path="/rfq/:rfqId" element={<RFQWorkspace />} />
+            <Route path="/integration" element={<IntegrationConsole />} />
+            <Route path="/embed" element={<EmbedPage />} />
+            <Route path="/embed/rfq/:rfqId" element={<EmbedPage />} />
+          </Routes>
+        </AppProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 
