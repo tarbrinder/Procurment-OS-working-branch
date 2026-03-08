@@ -9,6 +9,9 @@ import SellerDashboard from "@/pages/SellerDashboard";
 import RFQWorkspace from "@/pages/RFQWorkspace";
 import IntegrationConsole from "@/pages/IntegrationConsole";
 import EmbedPage from "@/pages/EmbedPage";
+import AdminLogin from "@/pages/AdminLogin";
+import AdminDashboard from "@/pages/AdminDashboard";
+import AdminRFQDetail from "@/pages/AdminRFQDetail";
 import { fetchGlids, fetchGlidInfo } from "@/lib/api";
 
 export const AppContext = createContext(null);
@@ -72,6 +75,9 @@ function App() {
             <Route path="/integration" element={<IntegrationConsole />} />
             <Route path="/embed" element={<EmbedPage />} />
             <Route path="/embed/rfq/:rfqId" element={<EmbedPage />} />
+            <Route path="/admin" element={<AdminLogin />} />
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/rfq/:rfqId" element={<AdminRFQDetail />} />
           </Routes>
         </AppProvider>
       </BrowserRouter>

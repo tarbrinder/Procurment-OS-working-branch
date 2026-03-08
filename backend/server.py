@@ -1198,6 +1198,317 @@ async def list_webhooks():
 
 @api_router.delete("/integration/webhooks/{webhook_id}")
 async def delete_webhook(webhook_id: str):
+    """Delete a webhook."""
+    result = await db.webhooks.delete_one({"webhook_id": webhook_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    return {"message": "Webhook deleted"}
+
+
+# ============= ADMIN PORTAL ENDPOINTS =============
+
+# Simple admin credentials (for demo - in production use proper auth)
+ADMIN_CREDENTIALS = {
+    "tarbrinder.singh@indiamart.com": "Tarbrinder22/"
+}
+
+@api_router.post("/admin/login")
+async def admin_login(email: str, password: str):
+    """Admin login endpoint"""
+    if email in ADMIN_CREDENTIALS and ADMIN_CREDENTIALS[email] == password:
+        # Generate admin token (24 hours)
+        admin_token = jwt.encode(
+            {
+                "email": email,
+                "role": "admin",
+                "iat": datetime.now(timezone.utc),
+                "exp": datetime.now(timezone.utc) + timedelta(hours=24)
+            },
+            INTEGRATION_SECRET,
+            algorithm="HS256"
+        )
+        return {
+            "success": True,
+            "token": admin_token,
+            "email": email
+        }
+    else:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+
+@api_router.get("/admin/overview")
+async def admin_overview():
+    """Get admin dashboard overview statistics"""
+    # Total counts
+    total_buyers = await db.glid_network.count_documents({"type": "buyer"})
+    total_sellers = await db.glid_network.count_documents({"type": "seller"})
+    total_rfqs = await db.rfqs.count_documents({})
+    total_messages = await db.messages.count_documents({})
+    
+    # Stage distribution
+    pipeline = [
+        {"$group": {"_id": "$stage", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    stage_dist = await db.rfqs.aggregate(pipeline).to_list(100)
+    stage_distribution = {item["_id"]: item["count"] for item in stage_dist}
+    
+    # Priority distribution
+    priority_pipeline = [
+        {"$group": {"_id": "$priority", "count": {"$sum": 1}}}
+    ]
+    priority_dist = await db.rfqs.aggregate(priority_pipeline).to_list(100)
+    priority_distribution = {item["_id"]: item["count"] for item in priority_dist}
+    
+    # Recent activity (last 24 hours)
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    recent_rfqs = await db.rfqs.count_documents({"created_at": {"$gte": yesterday}})
+    recent_messages = await db.messages.count_documents({"created_at": {"$gte": yesterday}})
+    
+    # Broadcast stats
+    broadcast_rfqs = await db.rfqs.count_documents({"is_broadcast": True})
+    unique_broadcasts = len(await db.rfqs.distinct("broadcast_group_id", {"is_broadcast": True}))
+    
+    # Deal conversion
+    deal_won = await db.rfqs.count_documents({"stage": "DEAL_WON"})
+    deal_lost = await db.rfqs.count_documents({"stage": "DEAL_LOST"})
+    in_negotiation = await db.rfqs.count_documents({"stage": "NEGOTIATION"})
+    
+    # Top buyers by RFQ count
+    buyer_pipeline = [
+        {"$group": {"_id": "$buyer_glid", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 5}
+    ]
+    top_buyers_data = await db.rfqs.aggregate(buyer_pipeline).to_list(100)
+    top_buyers = []
+    for item in top_buyers_data:
+        glid_info = await db.glid_network.find_one({"glid": item["_id"]}, {"_id": 0})
+        top_buyers.append({
+            "glid": item["_id"],
+            "name": glid_info.get("name", "Unknown") if glid_info else "Unknown",
+            "rfq_count": item["count"]
+        })
+    
+    # Top sellers by RFQ count
+    seller_pipeline = [
+        {"$group": {"_id": "$seller_glid", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 5}
+    ]
+    top_sellers_data = await db.rfqs.aggregate(seller_pipeline).to_list(100)
+    top_sellers = []
+    for item in top_sellers_data:
+        glid_info = await db.glid_network.find_one({"glid": item["_id"]}, {"_id": 0})
+        top_sellers.append({
+            "glid": item["_id"],
+            "name": glid_info.get("name", "Unknown") if glid_info else "Unknown",
+            "rfq_count": item["count"]
+        })
+    
+    return {
+        "totals": {
+            "buyers": total_buyers,
+            "sellers": total_sellers,
+            "rfqs": total_rfqs,
+            "messages": total_messages
+        },
+        "stage_distribution": stage_distribution,
+        "priority_distribution": priority_distribution,
+        "recent_activity": {
+            "rfqs_24h": recent_rfqs,
+            "messages_24h": recent_messages
+        },
+        "broadcast_stats": {
+            "broadcast_rfqs": broadcast_rfqs,
+            "unique_broadcast_groups": unique_broadcasts
+        },
+        "conversion": {
+            "deal_won": deal_won,
+            "deal_lost": deal_lost,
+            "in_negotiation": in_negotiation,
+            "win_rate": round((deal_won / (deal_won + deal_lost) * 100), 2) if (deal_won + deal_lost) > 0 else 0
+        },
+        "top_buyers": top_buyers,
+        "top_sellers": top_sellers
+    }
+
+
+@api_router.get("/admin/rfqs")
+async def admin_get_all_rfqs(
+    stage: Optional[str] = None,
+    priority: Optional[str] = None,
+    search: Optional[str] = None,
+    limit: int = 100,
+    skip: int = 0
+):
+    """Get all RFQs for admin view with filters"""
+    query = {}
+    
+    if stage:
+        query["stage"] = stage
+    if priority:
+        query["priority"] = priority
+    if search:
+        query["$or"] = [
+            {"product": {"$regex": search, "$options": "i"}},
+            {"buyer_glid": {"$regex": search, "$options": "i"}},
+            {"seller_glid": {"$regex": search, "$options": "i"}},
+        ]
+    
+    rfqs = await db.rfqs.find(query, {"_id": 0}).sort("last_updated", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.rfqs.count_documents(query)
+    
+    # Enrich with GLID names
+    for rfq in rfqs:
+        buyer_info = await db.glid_network.find_one({"glid": rfq["buyer_glid"]}, {"_id": 0, "name": 1})
+        seller_info = await db.glid_network.find_one({"glid": rfq["seller_glid"]}, {"_id": 0, "name": 1})
+        rfq["buyer_name"] = buyer_info.get("name", "Unknown") if buyer_info else "Unknown"
+        rfq["seller_name"] = seller_info.get("name", "Unknown") if seller_info else "Unknown"
+    
+    return {
+        "rfqs": rfqs,
+        "total": total,
+        "page": skip // limit + 1,
+        "pages": (total + limit - 1) // limit
+    }
+
+
+@api_router.get("/admin/rfqs/{rfq_id}")
+async def admin_get_rfq_detail(rfq_id: str):
+    """Get detailed RFQ information for admin including full conversation"""
+    rfq = await db.rfqs.find_one({"rfq_id": rfq_id}, {"_id": 0})
+    if not rfq:
+        raise HTTPException(status_code=404, detail="RFQ not found")
+    
+    # Get messages
+    messages = await db.messages.find({"rfq_id": rfq_id}, {"_id": 0}).sort("created_at", 1).to_list(1000)
+    
+    # Get activity logs
+    activity_logs = await db.activity_logs.find({"rfq_id": rfq_id}, {"_id": 0}).sort("created_at", 1).to_list(1000)
+    
+    # Get buyer and seller info
+    buyer_info = await db.glid_network.find_one({"glid": rfq["buyer_glid"]}, {"_id": 0})
+    seller_info = await db.glid_network.find_one({"glid": rfq["seller_glid"]}, {"_id": 0})
+    
+    # Get files
+    files = await db.files.find({"rfq_id": rfq_id}, {"_id": 0, "file_data": 0}).to_list(100)
+    
+    # Get post-deal info if applicable
+    post_deal_info = {}
+    if rfq["stage"] in ["DEAL_WON", "PROFORMA_SENT", "PROFORMA_ACCEPTED", "PAYMENT_PENDING", 
+                        "PAYMENT_PARTIAL", "PAYMENT_RECEIVED", "DISPATCHED", "IN_TRANSIT", 
+                        "DELIVERED", "REVIEW_SUBMITTED", "CLOSED"]:
+        proforma = await db.proforma_invoices.find_one({"rfq_id": rfq_id}, {"_id": 0})
+        payments = await db.payments.find({"rfq_id": rfq_id}, {"_id": 0}).to_list(100)
+        shipments = await db.shipments.find({"rfq_id": rfq_id}, {"_id": 0}).to_list(100)
+        delivery = await db.delivery_records.find({"rfq_id": rfq_id}, {"_id": 0}).to_list(100)
+        complaints = await db.complaints.find({"rfq_id": rfq_id}, {"_id": 0}).to_list(100)
+        review = await db.reviews.find_one({"rfq_id": rfq_id}, {"_id": 0})
+        
+        post_deal_info = {
+            "proforma": proforma,
+            "payments": payments,
+            "shipments": shipments,
+            "delivery": delivery,
+            "complaints": complaints,
+            "review": review
+        }
+    
+    return {
+        "rfq": rfq,
+        "buyer_info": buyer_info,
+        "seller_info": seller_info,
+        "messages": messages,
+        "activity_logs": activity_logs,
+        "files": files,
+        "post_deal_info": post_deal_info,
+        "message_count": len(messages),
+        "activity_count": len(activity_logs)
+    }
+
+
+@api_router.get("/admin/analytics/timeline")
+async def admin_analytics_timeline(days: int = 7):
+    """Get timeline analytics for the last N days"""
+    cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    
+    # RFQs created per day
+    rfq_pipeline = [
+        {"$match": {"created_at": {"$gte": cutoff_date}}},
+        {"$group": {
+            "_id": {"$substr": ["$created_at", 0, 10]},
+            "count": {"$sum": 1}
+        }},
+        {"$sort": {"_id": 1}}
+    ]
+    rfqs_per_day = await db.rfqs.aggregate(rfq_pipeline).to_list(100)
+    
+    # Messages per day
+    msg_pipeline = [
+        {"$match": {"created_at": {"$gte": cutoff_date}}},
+        {"$group": {
+            "_id": {"$substr": ["$created_at", 0, 10]},
+            "count": {"$sum": 1}
+        }},
+        {"$sort": {"_id": 1}}
+    ]
+    messages_per_day = await db.messages.aggregate(msg_pipeline).to_list(100)
+    
+    return {
+        "period_days": days,
+        "rfqs_per_day": [{"date": item["_id"], "count": item["count"]} for item in rfqs_per_day],
+        "messages_per_day": [{"date": item["_id"], "count": item["count"]} for item in messages_per_day]
+    }
+
+
+@api_router.get("/admin/adoption")
+async def admin_adoption_metrics():
+    """Get adoption and engagement metrics"""
+    # Active users (buyers/sellers with recent activity)
+    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    
+    active_buyers = len(await db.rfqs.distinct("buyer_glid", {"last_updated": {"$gte": week_ago}}))
+    active_sellers = len(await db.rfqs.distinct("seller_glid", {"last_updated": {"$gte": week_ago}}))
+    
+    # Average messages per RFQ
+    avg_messages_pipeline = [
+        {"$group": {"_id": "$rfq_id", "count": {"$sum": 1}}},
+        {"$group": {"_id": None, "avg": {"$avg": "$count"}}}
+    ]
+    avg_messages_result = await db.messages.aggregate(avg_messages_pipeline).to_list(1)
+    avg_messages = round(avg_messages_result[0]["avg"], 2) if avg_messages_result else 0
+    
+    # Average time to first response (in hours)
+    # Simplified: time between RFQ creation and first seller message
+    
+    # Stages reached distribution
+    stages_pipeline = [
+        {"$group": {"_id": "$stage", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    stages_reached = await db.rfqs.aggregate(stages_pipeline).to_list(100)
+    
+    # Video call usage
+    total_video_calls = await db.video_calls.count_documents({})
+    completed_calls = await db.video_calls.count_documents({"status": "ended"})
+    
+    return {
+        "active_users": {
+            "active_buyers_7d": active_buyers,
+            "active_sellers_7d": active_sellers,
+            "total_active_7d": active_buyers + active_sellers
+        },
+        "engagement": {
+            "avg_messages_per_rfq": avg_messages,
+            "total_video_calls": total_video_calls,
+            "completed_video_calls": completed_calls,
+            "video_call_completion_rate": round((completed_calls / total_video_calls * 100), 2) if total_video_calls > 0 else 0
+        },
+        "stages_reached": [{"stage": item["_id"], "count": item["count"]} for item in stages_reached]
+    }
+
+async def delete_webhook(webhook_id: str):
     await db.webhooks.delete_one({"webhook_id": webhook_id})
     return {"message": "Webhook deleted"}
 
