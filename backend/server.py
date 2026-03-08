@@ -163,6 +163,31 @@ class IntegrationCreateRFQRequest(BaseModel):
     metadata: Dict[str, Any] = {}
 
 
+# ============= NEW: FLEXIBLE RFQ MODELS =============
+class FlexibleRFQRequest(BaseModel):
+    buyer_external_id: str
+    buyer_metadata: Dict[str, Any] = {}
+    seller_external_ids: List[str]  # Multiple sellers for broadcast
+    rfq_data: Dict[str, Any]  # Flexible key-value pairs
+    priority: str = "medium"
+    display_config: Dict[str, Any] = {}  # UI hints
+    global_metadata: Dict[str, Any] = {}
+
+
+class BulkRFQItem(BaseModel):
+    rfq_data: Dict[str, Any]
+    seller_external_ids: List[str]
+    priority: str = "medium"
+    metadata: Dict[str, Any] = {}
+
+
+class BulkRFQRequest(BaseModel):
+    buyer_external_id: str
+    buyer_metadata: Dict[str, Any] = {}
+    rfqs: List[BulkRFQItem]
+    global_metadata: Dict[str, Any] = {}
+
+
 class GenerateTokenRequest(BaseModel):
     external_id: str
     expires_minutes: int = 60
@@ -840,6 +865,317 @@ async def integration_rfq_status(rfq_id: str):
         "last_updated": rfq.get("last_updated"),
         "buyer_external_id": rfq.get("buyer_external_id"),
         "seller_external_id": rfq.get("seller_external_id"),
+    }
+
+
+
+# ============= NEW: FLEXIBLE RFQ BROADCAST API =============
+@api_router.post("/integration/create-rfq-flexible")
+async def create_rfq_flexible(req: FlexibleRFQRequest):
+    """
+    Create RFQ with flexible schema broadcast to multiple sellers.
+    Supports custom key-value pairs in rfq_data.
+    """
+    # Validate buyer
+    buyer = await db.partners.find_one({"external_id": req.buyer_external_id}, {"_id": 0})
+    if not buyer:
+        raise HTTPException(status_code=404, detail=f"Buyer '{req.buyer_external_id}' not registered")
+    if buyer["role"] != "buyer":
+        raise HTTPException(status_code=400, detail=f"'{req.buyer_external_id}' is not a buyer")
+    
+    # Validate all sellers exist
+    if not req.seller_external_ids or len(req.seller_external_ids) == 0:
+        raise HTTPException(status_code=400, detail="At least one seller required")
+    
+    # Deduplicate sellers
+    seller_ids_unique = list(set(req.seller_external_ids))
+    
+    sellers = []
+    for seller_id in seller_ids_unique:
+        seller = await db.partners.find_one({"external_id": seller_id}, {"_id": 0})
+        if not seller:
+            raise HTTPException(status_code=404, detail=f"Seller '{seller_id}' not registered")
+        if seller["role"] != "seller":
+            raise HTTPException(status_code=400, detail=f"'{seller_id}' is not a seller")
+        sellers.append(seller)
+    
+    # Check for reserved field names in rfq_data
+    reserved_fields = ["rfq_id", "buyer_glid", "seller_glid", "stage", "created_at", "last_updated", 
+                       "probability_score", "fulfillment_progress"]
+    for field in reserved_fields:
+        if field in req.rfq_data:
+            raise HTTPException(status_code=400, detail=f"Field name '{field}' is reserved")
+    
+    # Generate broadcast group ID
+    broadcast_group_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Extract display title for backward compatibility
+    display_config = req.display_config or {}
+    title_field = display_config.get("title_field", "category")
+    product_title = req.rfq_data.get(title_field, req.rfq_data.get("product", "Custom RFQ"))
+    
+    # Extract quantity and budget for backward compatibility
+    quantity = req.rfq_data.get("quantity", 1)
+    budget = req.rfq_data.get("budget", req.rfq_data.get("estimated_budget", 0))
+    
+    rfqs_created = []
+    rfq_documents = []
+    
+    # Create RFQ for each seller
+    for seller in sellers:
+        # Update connections
+        await db.glid_network.update_one({"glid": buyer["glid"]}, {"$addToSet": {"connections": seller["glid"]}})
+        await db.glid_network.update_one({"glid": seller["glid"]}, {"$addToSet": {"connections": buyer["glid"]}})
+        
+        rfq_id = str(uuid.uuid4())
+        rfq = {
+            "rfq_id": rfq_id,
+            "buyer_glid": buyer["glid"],
+            "seller_glid": seller["glid"],
+            
+            # Flexible RFQ data (primary)
+            "rfq_data": req.rfq_data,
+            "display_config": display_config,
+            
+            # Backward compatibility fields
+            "product": product_title,
+            "quantity": quantity,
+            "budget": budget,
+            "description": req.rfq_data.get("description", ""),
+            
+            # System fields
+            "stage": "RFQ_SENT",
+            "probability_score": 40,
+            "priority": req.priority,
+            "created_at": now,
+            "last_updated": now,
+            
+            # Broadcast info
+            "broadcast_group_id": broadcast_group_id,
+            "is_broadcast": True,
+            
+            # External IDs
+            "buyer_external_id": req.buyer_external_id,
+            "seller_external_id": seller["external_id"],
+            
+            # Metadata
+            "buyer_metadata": req.buyer_metadata,
+            "integration_metadata": req.global_metadata,
+        }
+        
+        rfq_documents.append(rfq)
+        
+        # Generate tokens
+        buyer_token = generate_token(buyer["external_id"], "buyer", buyer["name"], buyer["partner_id"], 1440)
+        seller_token = generate_token(seller["external_id"], "seller", seller["name"], seller["partner_id"], 1440)
+        embed_base = os.environ.get("REACT_APP_BACKEND_URL", "")
+        
+        rfqs_created.append({
+            "rfq_id": rfq_id,
+            "seller_glid": seller["glid"],
+            "seller_external_id": seller["external_id"],
+            "seller_name": seller["name"],
+            "seller_dashboard_url": f"{embed_base}/embed?token={seller_token}",
+            "rfq_workspace_url": f"{embed_base}/embed/rfq/{rfq_id}?token={seller_token}",
+        })
+    
+    # Batch insert RFQs
+    if rfq_documents:
+        await db.rfqs.insert_many(rfq_documents)
+    
+    # Create activity logs
+    activity_logs = []
+    for rfq_doc in rfq_documents:
+        activity_logs.append({
+            "log_id": str(uuid.uuid4()),
+            "rfq_id": rfq_doc["rfq_id"],
+            "action": "RFQ_CREATED",
+            "actor_glid": buyer["glid"],
+            "actor_type": "buyer",
+            "details": f"Broadcast RFQ created for {product_title} via flexible API",
+            "created_at": now,
+        })
+    
+    if activity_logs:
+        await db.activity_logs.insert_many(activity_logs)
+    
+    # Generate buyer token
+    buyer_token = generate_token(buyer["external_id"], "buyer", buyer["name"], buyer["partner_id"], 1440)
+    embed_base = os.environ.get("REACT_APP_BACKEND_URL", "")
+    
+    return {
+        "buyer_glid": buyer["glid"],
+        "broadcast_group_id": broadcast_group_id,
+        "rfqs_created": rfqs_created,
+        "buyer_dashboard_url": f"{embed_base}/embed?token={buyer_token}",
+        "summary": {
+            "total_rfqs_created": len(rfqs_created),
+            "broadcast_mode": True,
+            "same_rfq_to_all": True,
+            "sellers_count": len(sellers),
+        }
+    }
+
+
+# ============= NEW: BULK MULTI-RFQ API =============
+@api_router.post("/integration/create-rfqs-bulk")
+async def create_rfqs_bulk(req: BulkRFQRequest):
+    """
+    Create multiple RFQs with different specifications to different sellers.
+    Each RFQ can go to multiple sellers (broadcast per RFQ).
+    """
+    # Validate buyer
+    buyer = await db.partners.find_one({"external_id": req.buyer_external_id}, {"_id": 0})
+    if not buyer:
+        raise HTTPException(status_code=404, detail=f"Buyer '{req.buyer_external_id}' not registered")
+    if buyer["role"] != "buyer":
+        raise HTTPException(status_code=400, detail=f"'{req.buyer_external_id}' is not a buyer")
+    
+    if not req.rfqs or len(req.rfqs) == 0:
+        raise HTTPException(status_code=400, detail="At least one RFQ required")
+    
+    # Limit to prevent abuse
+    total_threads = sum(len(rfq.seller_external_ids) for rfq in req.rfqs)
+    if total_threads > 500:
+        raise HTTPException(status_code=400, detail=f"Too many threads ({total_threads}). Maximum 500 per request.")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    all_rfqs_created = []
+    rfq_documents = []
+    activity_logs = []
+    
+    for rfq_item in req.rfqs:
+        if not rfq_item.seller_external_ids or len(rfq_item.seller_external_ids) == 0:
+            continue
+        
+        # Deduplicate sellers
+        seller_ids_unique = list(set(rfq_item.seller_external_ids))
+        
+        # Validate sellers
+        sellers = []
+        for seller_id in seller_ids_unique:
+            seller = await db.partners.find_one({"external_id": seller_id}, {"_id": 0})
+            if not seller:
+                raise HTTPException(status_code=404, detail=f"Seller '{seller_id}' not registered")
+            if seller["role"] != "seller":
+                raise HTTPException(status_code=400, detail=f"'{seller_id}' is not a seller")
+            sellers.append(seller)
+        
+        # Generate broadcast group for this RFQ
+        broadcast_group_id = str(uuid.uuid4())
+        
+        # Extract display info
+        product_title = rfq_item.rfq_data.get("category", rfq_item.rfq_data.get("product", "Custom RFQ"))
+        quantity = rfq_item.rfq_data.get("quantity", 1)
+        budget = rfq_item.rfq_data.get("budget", rfq_item.rfq_data.get("estimated_budget", 0))
+        
+        rfq_category_data = {
+            "category": product_title,
+            "rfqs": []
+        }
+        
+        # Create RFQ for each seller
+        for seller in sellers:
+            # Update connections
+            await db.glid_network.update_one({"glid": buyer["glid"]}, {"$addToSet": {"connections": seller["glid"]}})
+            await db.glid_network.update_one({"glid": seller["glid"]}, {"$addToSet": {"connections": buyer["glid"]}})
+            
+            rfq_id = str(uuid.uuid4())
+            rfq_doc = {
+                "rfq_id": rfq_id,
+                "buyer_glid": buyer["glid"],
+                "seller_glid": seller["glid"],
+                
+                # Flexible RFQ data
+                "rfq_data": rfq_item.rfq_data,
+                
+                # Backward compatibility
+                "product": product_title,
+                "quantity": quantity,
+                "budget": budget,
+                "description": rfq_item.rfq_data.get("description", ""),
+                
+                # System fields
+                "stage": "RFQ_SENT",
+                "probability_score": 40,
+                "priority": rfq_item.priority,
+                "created_at": now,
+                "last_updated": now,
+                
+                # Broadcast info
+                "broadcast_group_id": broadcast_group_id,
+                "is_broadcast": len(sellers) > 1,
+                
+                # External IDs
+                "buyer_external_id": req.buyer_external_id,
+                "seller_external_id": seller["external_id"],
+                
+                # Metadata
+                "buyer_metadata": req.buyer_metadata,
+                "integration_metadata": {**req.global_metadata, **rfq_item.metadata},
+            }
+            
+            rfq_documents.append(rfq_doc)
+            
+            # Generate tokens
+            seller_token = generate_token(seller["external_id"], "seller", seller["name"], seller["partner_id"], 1440)
+            embed_base = os.environ.get("REACT_APP_BACKEND_URL", "")
+            
+            rfq_category_data["rfqs"].append({
+                "rfq_id": rfq_id,
+                "seller_glid": seller["glid"],
+                "seller_external_id": seller["external_id"],
+                "seller_name": seller["name"],
+                "seller_dashboard_url": f"{embed_base}/embed?token={seller_token}",
+                "rfq_workspace_url": f"{embed_base}/embed/rfq/{rfq_id}?token={seller_token}",
+            })
+            
+            # Activity log
+            activity_logs.append({
+                "log_id": str(uuid.uuid4()),
+                "rfq_id": rfq_id,
+                "action": "RFQ_CREATED",
+                "actor_glid": buyer["glid"],
+                "actor_type": "buyer",
+                "details": f"Bulk RFQ created for {product_title} via flexible API",
+                "created_at": now,
+            })
+        
+        all_rfqs_created.append(rfq_category_data)
+    
+    # Batch insert RFQs
+    if rfq_documents:
+        await db.rfqs.insert_many(rfq_documents)
+    
+    # Batch insert activity logs
+    if activity_logs:
+        await db.activity_logs.insert_many(activity_logs)
+    
+    # Generate buyer token
+    buyer_token = generate_token(buyer["external_id"], "buyer", buyer["name"], buyer["partner_id"], 1440)
+    embed_base = os.environ.get("REACT_APP_BACKEND_URL", "")
+    
+    return {
+        "buyer_glid": buyer["glid"],
+        "total_rfqs_created": len(rfq_documents),
+        "buyer_dashboard_url": f"{embed_base}/embed?token={buyer_token}",
+        "rfqs_by_category": all_rfqs_created,
+    }
+
+
+# ============= GET BROADCAST GROUP RFQs =============
+@api_router.get("/integration/broadcast-group/{broadcast_group_id}")
+async def get_broadcast_group(broadcast_group_id: str):
+    """Get all RFQs in a broadcast group (buyer only)."""
+    rfqs = await db.rfqs.find({"broadcast_group_id": broadcast_group_id}, {"_id": 0}).to_list(100)
+    if not rfqs:
+        raise HTTPException(status_code=404, detail="Broadcast group not found")
+    
+    return {
+        "broadcast_group_id": broadcast_group_id,
+        "total_rfqs": len(rfqs),
+        "rfqs": rfqs
     }
 
 

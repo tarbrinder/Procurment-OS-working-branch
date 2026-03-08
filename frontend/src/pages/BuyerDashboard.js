@@ -9,6 +9,7 @@ import { CreateRFQModal } from "@/components/CreateRFQModal";
 import { IncomingCallsWidget } from "@/components/IncomingCallsWidget";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { NotificationBell } from "@/components/NotificationBell";
+import { CompactRFQCard, BroadcastBadge } from "@/components/DynamicRFQ";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -208,7 +209,10 @@ export default function BuyerDashboard() {
                     data-testid={`rfq-row-${rfq.rfq_id}`}
                   >
                     <TableCell className="font-medium">GLID {rfq.seller_glid}</TableCell>
-                    <TableCell>{rfq.product}</TableCell>
+                    <TableCell>
+                      <CompactRFQCard rfq={rfq} />
+                      <BroadcastBadge rfq={rfq} />
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1.5">
                         <StageBadge stage={rfq.stage} />

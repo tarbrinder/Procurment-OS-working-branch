@@ -5,6 +5,7 @@ import { Navbar } from "@/components/Navbar";
 import { KPICard } from "@/components/KPICard";
 import { StageBadge } from "@/components/StageBadge";
 import { ProbabilityIndicator } from "@/components/ProbabilityIndicator";
+import { CompactRFQCard, BroadcastBadge } from "@/components/DynamicRFQ";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -183,8 +184,11 @@ export default function SellerDashboard() {
                   data-testid={`seller-rfq-row-${rfq.rfq_id}`}
                 >
                   <TableCell className="font-medium">GLID {rfq.buyer_glid}</TableCell>
-                  <TableCell>{rfq.product}</TableCell>
-                  <TableCell>INR {rfq.budget?.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <CompactRFQCard rfq={rfq} />
+                    <BroadcastBadge rfq={rfq} />
+                  </TableCell>
+                  <TableCell>₹{rfq.budget?.toLocaleString()}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5">
                       <StageBadge stage={rfq.stage} />

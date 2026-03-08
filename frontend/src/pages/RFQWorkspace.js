@@ -5,6 +5,7 @@ import { Navbar } from "@/components/Navbar";
 import { StageBadge } from "@/components/StageBadge";
 import { ProbabilityIndicator } from "@/components/ProbabilityIndicator";
 import { MessageThread } from "@/components/MessageThread";
+import { DynamicRFQDetails, BroadcastBadge, getRFQTitle } from "@/components/DynamicRFQ";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fetchRfq, fetchMessages, fetchActivity, performAction, initiateCall, endCall, getActiveCalls, verifySeller, listRfqFiles } from "@/lib/api";
@@ -265,7 +266,10 @@ export default function RFQWorkspace() {
             >
               <ArrowLeft size={16} /> Back
             </button>
-            <h2 className="workspace-title">{rfq.product}</h2>
+            <h2 className="workspace-title">
+              {getRFQTitle(rfq)}
+              <BroadcastBadge rfq={rfq} />
+            </h2>
             <StageBadge stage={rfq.stage} />
             {rfq.seller_verified?.verified && <VerificationBadge verification={rfq.seller_verified} />}
           </div>
@@ -307,15 +311,11 @@ export default function RFQWorkspace() {
                 <span className="detail-label">Seller GLID</span>
                 <span className="detail-value">{rfq.seller_glid}</span>
               </div>
-              <div className="detail-row">
-                <span className="detail-label">Quantity</span>
-                <span className="detail-value">{rfq.quantity?.toLocaleString()}</span>
-              </div>
-              <div className="detail-row">
-                <span className="detail-label">Budget</span>
-                <span className="detail-value">INR {rfq.budget?.toLocaleString()}</span>
-              </div>
-              <div className="detail-row">
+              
+              {/* Dynamic RFQ Details */}
+              <DynamicRFQDetails rfq={rfq} className="mt-3" />
+              
+              <div className="detail-row mt-3">
                 <span className="detail-label">Priority</span>
                 <span className={`priority-badge priority-${rfq.priority}`}>{rfq.priority}</span>
               </div>
