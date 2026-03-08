@@ -94,3 +94,7 @@ frontend/node_modules/.cache/default-development/4.pack
 # Environment files - .env files needed for deployment
 # *.env
 # *.env.*
+-e 
+# Environment files
+*.env
+*.env.*
